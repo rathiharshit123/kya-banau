@@ -1,19 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Settings, Sparkles, RefreshCw } from "lucide-react";
 import { MealTimePicker } from "@/components/meal-time-picker";
 import { MealCard } from "@/components/meal-card";
 import { GreetingCard } from "@/components/greeting-card";
-import { ResultsFilter, filterMeals } from "@/components/results-filter";
+import { ResultsFilter, filterMeals, type FilterId } from "@/components/results-filter";
 import { SuggestionSkeleton } from "@/components/skeleton";
-import { fetchSuggestions, createPoll } from "@/lib/api-client";
+import { fetchHousehold, fetchSuggestions, createPoll } from "@/lib/api-client";
 import { buildFamilyGroupShareMessage, getShareTitle, openWhatsAppShare } from "@/lib/share-message";
 import { toast } from "@/lib/use-toast";
 import { isPollEligibleMealTime, type MealTime, type Meal } from "@/lib/types";
-
-type FilterId = "all" | "today" | "week" | "breakfast" | "lunch" | "dinner";
 
 export default function HomePage() {
   const [mealTime, setMealTime] = useState<MealTime | null>(null);
@@ -28,6 +26,16 @@ export default function HomePage() {
   const [pollUrl, setPollUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [generatedMealTime, setGeneratedMealTime] = useState<MealTime | null>(null);
+  const [familyName, setFamilyName] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchHousehold()
+      .then((h) => {
+        const name = h.name?.trim();
+        if (name) setFamilyName(name);
+      })
+      .catch(() => {});
+  }, []);
 
   const pollEnabled = isPollEligibleMealTime(generatedMealTime);
 
@@ -48,7 +56,12 @@ export default function HomePage() {
     setGeneratedMealTime(null);
 
     try {
-      const result = await fetchSuggestions({ meal_time: mealTime });
+      const [result, household] = await Promise.all([
+        fetchSuggestions({ meal_time: mealTime }),
+        fetchHousehold().catch(() => null),
+      ]);
+      const name = household?.name?.trim();
+      if (name) setFamilyName(name);
       setGreeting(result.greeting);
       setTip(result.tip);
       setMeals(result.meals);
@@ -74,7 +87,7 @@ export default function HomePage() {
       throw new Error("No meals to share");
     }
 
-    const visible = filterMeals(meals, filter);
+    const visible = filterMeals(meals, filter, generatedMealTime);
     const poll = await createPoll({
       suggestion_id: suggestionId,
       title: getShareTitle(visible, filter),
@@ -90,7 +103,7 @@ export default function HomePage() {
 
   function getShareMessage(url?: string | null) {
     if (!meals) return "";
-    const visible = filterMeals(meals, filter);
+    const visible = filterMeals(meals, filter, generatedMealTime);
     const pollUrlForMessage = pollEnabled ? (url ?? pollUrl) : null;
     return buildFamilyGroupShareMessage(visible, {
       tip,
@@ -137,7 +150,9 @@ export default function HomePage() {
     }
   }
 
-  const visibleMeals = meals ? filterMeals(meals, filter) : null;
+  const visibleMeals = meals
+    ? filterMeals(meals, filter, generatedMealTime)
+    : null;
 
   const greetingHour = new Date().getHours();
   const timeGreeting =
@@ -163,11 +178,11 @@ export default function HomePage() {
         </div>
         <Link
           href="/preferences"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-xl px-3 h-9 text-sm font-medium transition-colors hover:text-[var(--color-text)]"
           style={{ color: "var(--color-muted)", border: "1px solid var(--color-border)" }}
-          title="Preferences"
         >
-          <Settings className="h-4.5 w-4.5" />
+          <Settings className="h-4 w-4 shrink-0" />
+          Preferences
         </Link>
       </header>
 
@@ -234,10 +249,19 @@ export default function HomePage() {
         {/* Results */}
         {!loading && meals && greeting && tip && (
           <div className="space-y-4 step-enter">
+            {familyName && (
+              <p className="text-sm font-medium" style={{ color: "var(--color-muted)" }}>
+                Meal plan for{" "}
+                <span className="font-semibold" style={{ color: "var(--color-accent)" }}>
+                  {familyName}
+                </span>
+              </p>
+            )}
             <GreetingCard greeting={greeting} tip={tip} />
 
             <ResultsFilter
               meals={meals}
+              mealTime={generatedMealTime}
               active={filter}
               onChange={(next) => {
                 setFilter(next);

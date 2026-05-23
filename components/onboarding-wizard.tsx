@@ -12,6 +12,7 @@ import {
   type DietaryType,
 } from "@/lib/types";
 import { CuisinePicker } from "@/components/cuisine-picker";
+import { ProteinGoalCard } from "@/components/protein-goal-card";
 
 interface FormState {
   name: string;
@@ -455,6 +456,11 @@ function Step4({
           ))}
         </div>
       </div>
+
+      <ProteinGoalCard
+        weightKg={form.weight_kg ? parseFloat(form.weight_kg) : null}
+        healthGoal={form.health_goal}
+      />
 
       <div className="flex gap-3">
         <button type="button" onClick={onBack} className="btn-ghost flex-1">← Back</button>

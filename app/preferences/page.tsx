@@ -14,6 +14,7 @@ import {
   type Household,
 } from "@/lib/types";
 import { CuisinePicker } from "@/components/cuisine-picker";
+import { ProteinGoalCard } from "@/components/protein-goal-card";
 
 function toggle(arr: string[], val: string): string[] {
   return arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
@@ -284,6 +285,11 @@ export default function PreferencesPage() {
               />
             ))}
           </div>
+
+          <ProteinGoalCard
+            weightKg={household.weight_kg}
+            healthGoal={household.health_goal}
+          />
         </section>
 
         {/* Dislikes */}

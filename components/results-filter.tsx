@@ -2,12 +2,13 @@
 
 import React from "react";
 import { Copy, MessageCircle } from "lucide-react";
-import type { Meal } from "@/lib/types";
+import type { Meal, MealTime } from "@/lib/types";
 
-type FilterId = "all" | "today" | "week" | "breakfast" | "lunch" | "dinner";
+export type FilterId = "all" | "today" | "week" | "breakfast" | "lunch" | "dinner";
 
 interface ResultsFilterProps {
   meals: Meal[];
+  mealTime: MealTime | null;
   active: FilterId;
   onChange: (f: FilterId) => void;
   onWhatsAppShare: () => void;
@@ -15,45 +16,83 @@ interface ResultsFilterProps {
   sharing?: boolean;
 }
 
-const FILTERS: { id: FilterId; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "today", label: "Today" },
-  { id: "week", label: "This Week" },
-  { id: "breakfast", label: "Breakfast" },
-  { id: "lunch", label: "Lunch" },
-  { id: "dinner", label: "Dinner" },
-];
+const FILTER_LABELS: Record<FilterId, string> = {
+  all: "All",
+  today: "Today",
+  week: "This Week",
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  dinner: "Dinner",
+};
+
+export function shouldShowMealFilters(mealTime: MealTime | null): boolean {
+  return mealTime === "today" || mealTime === "week";
+}
+
+function getVisibleFilters(mealTime: MealTime, meals: Meal[]): FilterId[] {
+  const options: FilterId[] = ["all"];
+
+  if (mealTime === "today") {
+    for (const type of ["breakfast", "lunch", "dinner"] as const) {
+      if (meals.some((m) => m.meal_type.toLowerCase() === type)) {
+        options.push(type);
+      }
+    }
+    return options;
+  }
+
+  if (mealTime === "week") {
+    for (const type of ["breakfast", "lunch", "dinner"] as const) {
+      if (meals.some((m) => m.meal_type.toLowerCase() === type)) {
+        options.push(type);
+      }
+    }
+
+    const hasToday = meals.some((m) => m.day === "Today");
+    const hasOtherDays = meals.some((m) => m.day !== "Today");
+    if (hasToday && hasOtherDays) {
+      options.push("today", "week");
+    }
+
+    return options;
+  }
+
+  return options;
+}
 
 export function ResultsFilter({
   meals,
+  mealTime,
   active,
   onChange,
   onWhatsAppShare,
   onCopyShare,
   sharing = false,
 }: ResultsFilterProps) {
-  // Only show filters that have matching meals
-  const visibleFilters = FILTERS.filter((f) => {
-    if (f.id === "all") return true;
-    if (f.id === "today") return meals.some((m) => m.day === "Today");
-    if (f.id === "week") return meals.some((m) => m.day !== "Today");
-    return meals.some((m) => m.meal_type.toLowerCase() === f.id);
-  });
+  const filterIds =
+    shouldShowMealFilters(mealTime) && mealTime
+      ? getVisibleFilters(mealTime, meals)
+      : [];
+  const showFilterRow = filterIds.length > 1;
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {visibleFilters.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => onChange(f.id)}
-            className={`filter-btn flex-shrink-0${active === f.id ? " active" : ""}`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {showFilterRow ? (
+        <div className="flex-1 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {filterIds.map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onChange(id)}
+              className={`filter-btn flex-shrink-0${active === id ? " active" : ""}`}
+            >
+              {FILTER_LABELS[id]}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="flex-1" />
+      )}
       <div className="flex flex-shrink-0 items-center gap-1.5">
         <button
           type="button"
@@ -88,8 +127,12 @@ export function ResultsFilter({
   );
 }
 
-export function filterMeals(meals: Meal[], active: FilterId): Meal[] {
-  if (active === "all") return meals;
+export function filterMeals(
+  meals: Meal[],
+  active: FilterId,
+  mealTime?: MealTime | null,
+): Meal[] {
+  if (!shouldShowMealFilters(mealTime ?? null) || active === "all") return meals;
   if (active === "today") {
     const todayMeals = meals.filter((m) => m.day === "Today");
     return todayMeals.length > 0 ? todayMeals : meals;

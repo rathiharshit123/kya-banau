@@ -1,4 +1,5 @@
 import { cuisineLabel, type Household } from "./types";
+import { calculateProteinGoal, formatProteinGoalDetail } from "./nutrition";
 
 function bmi(height_cm: number | null, weight_kg: number | null): string | null {
   if (!height_cm || !weight_kg) return null;
@@ -70,6 +71,11 @@ Output ONLY valid JSON matching the exact schema — no markdown, no extra keys.
     ? `Health goal: ${household.health_goal}`
     : "No specific health goal";
 
+  const proteinGoal = calculateProteinGoal(household.weight_kg, household.health_goal);
+  const proteinNote = proteinGoal
+    ? `Daily protein target: ${formatProteinGoalDetail(proteinGoal)} Prioritise high-protein options where practical.`
+    : "Daily protein target: not specified (use balanced portions)";
+
   const dislikes =
     household.disliked_ingredients.length > 0
       ? household.disliked_ingredients.join(", ")
@@ -87,6 +93,7 @@ ${fishNote ? `- Fish/seafood: ${fishNote}` : ""}\
 ${kidsNote ? `\n- Kids: ${kidsNote}` : ""}
 - ${bmiNote}
 - ${healthNote}
+- ${proteinNote}
 - Disliked/avoided ingredients: ${dislikes}
 - Additional notes: ${notes}
 
