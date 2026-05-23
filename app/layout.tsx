@@ -18,7 +18,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Kya Banau? — Aaj ka khana decide karo",
+  title: "Aaj Kya Banau? — Aaj ka khana decide karo",
   description:
     "AI-powered Indian meal suggestions personalised to your family's taste, cuisine, and health goals.",
 };

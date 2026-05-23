@@ -173,7 +173,7 @@ export default function HomePage() {
             🍛
           </div>
           <span className="font-display text-lg font-bold" style={{ color: "var(--color-text)" }}>
-            Kya Banau?
+            Aaj Kya Banau?
           </span>
         </div>
         <Link

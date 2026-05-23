@@ -16,7 +16,7 @@ export default function OnboardingPage() {
             🍛
           </div>
           <span className="font-display text-xl font-bold" style={{ color: "var(--color-text)" }}>
-            Kya Banau?
+            Aaj Kya Banau?
           </span>
         </div>
 

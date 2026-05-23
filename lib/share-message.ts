@@ -29,7 +29,7 @@ function shareTitle(meals: Meal[], filter: ShareFilter): string {
   const allToday = meals.every((m) => m.day === "Today");
   if (allToday) return "Aaj kya banau? 🍽️";
 
-  return "Meal plan from Kya Banau? 📅";
+  return "Meal plan from Aaj Kya Banau? 📅";
 }
 
 function formatMealLine(meal: Meal, index: number, meals: Meal[]): string {
