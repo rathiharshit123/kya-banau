@@ -196,7 +196,7 @@ export const CUISINES = [
   { id: "chinese", label: "Chinese", emoji: "🍜", desc: "Noodles, Fried Rice, Dim Sum" },
 ] as const;
 
-export const PREDEFINED_CUISINE_IDS = new Set(CUISINES.map((c) => c.id));
+export const PREDEFINED_CUISINE_IDS = new Set<string>(CUISINES.map((c) => c.id));
 
 export function cuisineLabel(id: string): string {
   const found = CUISINES.find((c) => c.id === id);
