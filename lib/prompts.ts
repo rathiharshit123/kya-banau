@@ -1,4 +1,4 @@
-import type { Household } from "./types";
+import { cuisineLabel, type Household } from "./types";
 
 function bmi(height_cm: number | null, weight_kg: number | null): string | null {
   if (!height_cm || !weight_kg) return null;
@@ -42,7 +42,7 @@ Output ONLY valid JSON matching the exact schema — no markdown, no extra keys.
 
   const cuisineList =
     household.cuisines.length > 0
-      ? household.cuisines.join(", ")
+      ? household.cuisines.map(cuisineLabel).join(", ")
       : "pan-Indian";
 
   const fusionList =

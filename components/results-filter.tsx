@@ -12,6 +12,7 @@ interface ResultsFilterProps {
   onChange: (f: FilterId) => void;
   onWhatsAppShare: () => void;
   onCopyShare: () => void;
+  sharing?: boolean;
 }
 
 const FILTERS: { id: FilterId; label: string }[] = [
@@ -29,6 +30,7 @@ export function ResultsFilter({
   onChange,
   onWhatsAppShare,
   onCopyShare,
+  sharing = false,
 }: ResultsFilterProps) {
   // Only show filters that have matching meals
   const visibleFilters = FILTERS.filter((f) => {
@@ -56,7 +58,8 @@ export function ResultsFilter({
         <button
           type="button"
           onClick={onCopyShare}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors"
+          disabled={sharing}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors disabled:opacity-50"
           style={{
             border: "1.5px solid var(--color-border)",
             color: "var(--color-muted)",
@@ -69,7 +72,8 @@ export function ResultsFilter({
         <button
           type="button"
           onClick={onWhatsAppShare}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
+          disabled={sharing}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors disabled:opacity-50"
           style={{
             background: "#25D366",
             color: "#fff",

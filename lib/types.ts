@@ -19,6 +19,17 @@ export const MealTimeSchema = z.enum([
 ]);
 export type MealTime = z.infer<typeof MealTimeSchema>;
 
+export const POLL_ELIGIBLE_MEAL_TIMES = ["breakfast", "lunch", "dinner"] as const;
+export type PollEligibleMealTime = (typeof POLL_ELIGIBLE_MEAL_TIMES)[number];
+
+export function isPollEligibleMealTime(
+  mealTime: MealTime | null | undefined,
+): mealTime is PollEligibleMealTime {
+  return (
+    mealTime === "breakfast" || mealTime === "lunch" || mealTime === "dinner"
+  );
+}
+
 // ─── Household ────────────────────────────────────────────────────────────────
 
 export const HouseholdSchema = z.object({
@@ -129,20 +140,74 @@ export const MealInteractionRequestSchema = z.object({
 });
 export type MealInteractionRequest = z.infer<typeof MealInteractionRequestSchema>;
 
+// ─── Polls ────────────────────────────────────────────────────────────────────
+
+export const PollStatusSchema = z.enum(["open", "closed"]);
+export type PollStatus = z.infer<typeof PollStatusSchema>;
+
+export const CreatePollRequestSchema = z.object({
+  suggestion_id: z.string().uuid().optional().nullable(),
+  title: z.string().min(1).max(200),
+  tip: z.string().optional().nullable(),
+  meals: z.array(MealSchema).min(1).max(21),
+});
+export type CreatePollRequest = z.infer<typeof CreatePollRequestSchema>;
+
+export const PollOptionSchema = z.object({
+  meal_index: z.number().int().nonnegative(),
+  name: z.string(),
+  meal_type: z.string(),
+  day: z.string(),
+  description: z.string(),
+  votes: z.number().int().nonnegative(),
+});
+export type PollOption = z.infer<typeof PollOptionSchema>;
+
+export const PollResponseSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  tip: z.string().nullable(),
+  status: PollStatusSchema,
+  total_votes: z.number().int().nonnegative(),
+  options: z.array(PollOptionSchema),
+  my_vote: z
+    .object({
+      meal_index: z.number().int().nonnegative(),
+      voter_name: z.string().nullable(),
+    })
+    .nullable(),
+  share_url: z.string().url().optional(),
+});
+export type PollResponse = z.infer<typeof PollResponseSchema>;
+
+export const CastVoteRequestSchema = z.object({
+  meal_index: z.number().int().nonnegative(),
+  voter_token: z.string().uuid(),
+  voter_name: z.string().max(50).optional(),
+});
+export type CastVoteRequest = z.infer<typeof CastVoteRequestSchema>;
+
 // ─── Lookup constants ─────────────────────────────────────────────────────────
 
 export const CUISINES = [
-  { id: "north_indian", label: "North Indian", emoji: "🫓" },
-  { id: "south_indian", label: "South Indian", emoji: "🍚" },
-  { id: "west_indian", label: "West Indian", emoji: "🥘" },
-  { id: "east_indian", label: "East Indian", emoji: "🐟" },
-  { id: "street_food", label: "Street Food", emoji: "🌮" },
-  { id: "pan_indian", label: "Pan-Indian", emoji: "🍛" },
+  { id: "south_indian", label: "South Indian", emoji: "🥘", desc: "Idli, Dosa, Sambhar" },
+  { id: "north_indian", label: "North Indian", emoji: "🫓", desc: "Roti, Dal, Sabzi" },
+  { id: "italian", label: "Italian", emoji: "🍝", desc: "Pasta, Pizza, Risotto" },
+  { id: "chinese", label: "Chinese", emoji: "🍜", desc: "Noodles, Fried Rice, Dim Sum" },
 ] as const;
+
+export const PREDEFINED_CUISINE_IDS = new Set(CUISINES.map((c) => c.id));
+
+export function cuisineLabel(id: string): string {
+  const found = CUISINES.find((c) => c.id === id);
+  return found?.label ?? id;
+}
 
 export const FUSION_DAYS = [
   { id: "monday", label: "Monday" },
+  {id: "tuesday", label: "Tuesday" },
   { id: "wednesday", label: "Wednesday" },
+  { id: "thursday", label: "Thursday" },
   { id: "friday", label: "Friday" },
   { id: "saturday", label: "Saturday" },
   { id: "sunday", label: "Sunday" },

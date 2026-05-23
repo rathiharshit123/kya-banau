@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { upsertHousehold } from "@/lib/api-client";
 import { toast } from "@/lib/use-toast";
 import {
-  CUISINES,
   FUSION_DAYS,
   HEALTH_GOALS,
   DISLIKES,
   DIETARY_LABELS,
   type DietaryType,
 } from "@/lib/types";
+import { CuisinePicker } from "@/components/cuisine-picker";
 
 interface FormState {
   name: string;
@@ -227,17 +227,10 @@ function Step1({
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {CUISINES.map((c) => (
-          <Chip
-            key={c.id}
-            label={c.label}
-            emoji={c.emoji}
-            active={form.cuisines.includes(c.id)}
-            onClick={() => patch("cuisines", toggle(form.cuisines, c.id))}
-          />
-        ))}
-      </div>
+      <CuisinePicker
+        value={form.cuisines}
+        onChange={(next) => patch("cuisines", next)}
+      />
 
       <div className="flex gap-3">
         <button type="button" onClick={onBack} className="btn-ghost flex-1">← Back</button>

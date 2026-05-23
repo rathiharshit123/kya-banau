@@ -9,6 +9,10 @@ const MEAL_TYPE_EMOJI: Record<string, string> = {
   snack: "🍎",
 };
 
+export function getShareTitle(meals: Meal[], filter: ShareFilter = "all"): string {
+  return shareTitle(meals, filter);
+}
+
 function shareTitle(meals: Meal[], filter: ShareFilter): string {
   if (filter === "breakfast" || filter === "lunch" || filter === "dinner") {
     const label = filter.charAt(0).toUpperCase() + filter.slice(1);
@@ -66,7 +70,7 @@ function formatReasons(tip: string | null | undefined, meals: Meal[]): string {
 
 export function buildFamilyGroupShareMessage(
   meals: Meal[],
-  options?: { tip?: string | null; filter?: ShareFilter },
+  options?: { tip?: string | null; filter?: ShareFilter; pollUrl?: string | null },
 ): string {
   if (meals.length === 0) return "";
 
@@ -81,7 +85,9 @@ export function buildFamilyGroupShareMessage(
     message += `\n\nRecommended because:\n${reasons}`;
   }
 
-  message += "\n\nVote karo 😄";
+  if (options?.pollUrl) {
+    message += `\n\nVote karo 👇\n${options.pollUrl}`;
+  }
 
   return message;
 }

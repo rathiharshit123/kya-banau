@@ -8,10 +8,10 @@ import { MealCard } from "@/components/meal-card";
 import { GreetingCard } from "@/components/greeting-card";
 import { ResultsFilter, filterMeals } from "@/components/results-filter";
 import { SuggestionSkeleton } from "@/components/skeleton";
-import { fetchSuggestions } from "@/lib/api-client";
-import { buildFamilyGroupShareMessage, openWhatsAppShare } from "@/lib/share-message";
+import { fetchSuggestions, createPoll } from "@/lib/api-client";
+import { buildFamilyGroupShareMessage, getShareTitle, openWhatsAppShare } from "@/lib/share-message";
 import { toast } from "@/lib/use-toast";
-import type { MealTime, Meal } from "@/lib/types";
+import { isPollEligibleMealTime, type MealTime, type Meal } from "@/lib/types";
 
 type FilterId = "all" | "today" | "week" | "breakfast" | "lunch" | "dinner";
 
@@ -24,6 +24,12 @@ export default function HomePage() {
   const [filter, setFilter] = useState<FilterId>("all");
   const [error, setError] = useState<string | null>(null);
   const [suggestionId, setSuggestionId] = useState<string | null>(null);
+  const [pollId, setPollId] = useState<string | null>(null);
+  const [pollUrl, setPollUrl] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [generatedMealTime, setGeneratedMealTime] = useState<MealTime | null>(null);
+
+  const pollEnabled = isPollEligibleMealTime(generatedMealTime);
 
   async function handleGenerate() {
     if (!mealTime) {
@@ -37,6 +43,9 @@ export default function HomePage() {
     setTip(null);
     setFilter("all");
     setSuggestionId(null);
+    setPollId(null);
+    setPollUrl(null);
+    setGeneratedMealTime(null);
 
     try {
       const result = await fetchSuggestions({ meal_time: mealTime });
@@ -44,6 +53,7 @@ export default function HomePage() {
       setTip(result.tip);
       setMeals(result.meals);
       setSuggestionId(result.suggestion_id ?? null);
+      setGeneratedMealTime(mealTime);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -53,24 +63,78 @@ export default function HomePage() {
     }
   }
 
-  function getShareMessage() {
+  async function ensurePoll() {
+    if (!pollEnabled) {
+      return { pollId: null, pollUrl: null };
+    }
+    if (pollId && pollUrl) {
+      return { pollId, pollUrl };
+    }
+    if (!meals) {
+      throw new Error("No meals to share");
+    }
+
+    const visible = filterMeals(meals, filter);
+    const poll = await createPoll({
+      suggestion_id: suggestionId,
+      title: getShareTitle(visible, filter),
+      tip,
+      meals: visible,
+    });
+
+    const url = poll.share_url ?? `${window.location.origin}/poll/${poll.id}`;
+    setPollId(poll.id);
+    setPollUrl(url);
+    return { pollId: poll.id, pollUrl: url };
+  }
+
+  function getShareMessage(url?: string | null) {
     if (!meals) return "";
     const visible = filterMeals(meals, filter);
-    return buildFamilyGroupShareMessage(visible, { tip, filter });
-  }
-
-  function handleWhatsAppShare() {
-    const message = getShareMessage();
-    if (!message) return;
-    openWhatsAppShare(message);
-  }
-
-  function handleCopyShare() {
-    const message = getShareMessage();
-    if (!message) return;
-    navigator.clipboard.writeText(message).then(() => {
-      toast({ title: "Copied for family group!", variant: "success" });
+    const pollUrlForMessage = pollEnabled ? (url ?? pollUrl) : null;
+    return buildFamilyGroupShareMessage(visible, {
+      tip,
+      filter,
+      pollUrl: pollUrlForMessage,
     });
+  }
+
+  async function handleWhatsAppShare() {
+    setSharing(true);
+    try {
+      const { pollUrl: url } = await ensurePoll();
+      const message = getShareMessage(url);
+      if (!message) return;
+      openWhatsAppShare(message);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({
+        title: pollEnabled ? "Could not create poll" : "Could not share",
+        description: msg,
+        variant: "error",
+      });
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function handleCopyShare() {
+    setSharing(true);
+    try {
+      const { pollUrl: url } = await ensurePoll();
+      const message = getShareMessage(url);
+      if (!message) return;
+      await navigator.clipboard.writeText(message);
+      toast({
+        title: pollEnabled ? "Copied with vote link!" : "Copied for family group!",
+        variant: "success",
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({ title: "Could not copy", description: msg, variant: "error" });
+    } finally {
+      setSharing(false);
+    }
   }
 
   const visibleMeals = meals ? filterMeals(meals, filter) : null;
@@ -175,10 +239,27 @@ export default function HomePage() {
             <ResultsFilter
               meals={meals}
               active={filter}
-              onChange={setFilter}
+              onChange={(next) => {
+                setFilter(next);
+                if (pollEnabled) {
+                  setPollId(null);
+                  setPollUrl(null);
+                }
+              }}
               onWhatsAppShare={handleWhatsAppShare}
               onCopyShare={handleCopyShare}
+              sharing={sharing}
             />
+
+            {pollEnabled && pollUrl && (
+              <Link
+                href={`/poll/${pollId}`}
+                className="block text-center text-sm font-semibold"
+                style={{ color: "var(--color-accent)" }}
+              >
+                View live poll results →
+              </Link>
+            )}
 
             <div className="space-y-3">
               {(visibleMeals ?? []).map((meal, i) => (
@@ -201,6 +282,9 @@ export default function HomePage() {
                   setTip(null);
                   setFilter("all");
                   setSuggestionId(null);
+                  setPollId(null);
+                  setPollUrl(null);
+                  setGeneratedMealTime(null);
                 }}
                 className="btn-ghost flex-1"
               >

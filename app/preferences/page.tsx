@@ -6,7 +6,6 @@ import { ArrowLeft } from "lucide-react";
 import { fetchHousehold, upsertHousehold } from "@/lib/api-client";
 import { toast } from "@/lib/use-toast";
 import {
-  CUISINES,
   FUSION_DAYS,
   HEALTH_GOALS,
   DISLIKES,
@@ -14,6 +13,7 @@ import {
   type DietaryType,
   type Household,
 } from "@/lib/types";
+import { CuisinePicker } from "@/components/cuisine-picker";
 
 function toggle(arr: string[], val: string): string[] {
   return arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
@@ -148,17 +148,10 @@ export default function PreferencesPage() {
         {/* Cuisines */}
         <section className="space-y-3">
           <SectionLabel>Preferred Cuisines</SectionLabel>
-          <div className="flex flex-wrap gap-2">
-            {CUISINES.map((c) => (
-              <Chip
-                key={c.id}
-                label={c.label}
-                emoji={c.emoji}
-                active={cuisines.includes(c.id)}
-                onClick={() => patch("cuisines", toggle(cuisines, c.id) as Household["cuisines"])}
-              />
-            ))}
-          </div>
+          <CuisinePicker
+            value={cuisines}
+            onChange={(next) => patch("cuisines", next as Household["cuisines"])}
+          />
         </section>
 
         {/* Fusion days */}

@@ -6,6 +6,9 @@ import type {
   MealPlan,
   RecipeVideosResponse,
   MealInteractionRequest,
+  CreatePollRequest,
+  PollResponse,
+  CastVoteRequest,
 } from "./types";
 
 function householdId(): string {
@@ -76,4 +79,31 @@ export function logMealInteraction(body: MealInteractionRequest): void {
     headers: headers(),
     body: JSON.stringify(body),
   }).catch(() => {});
+}
+
+export async function createPoll(body: CreatePollRequest): Promise<PollResponse> {
+  const res = await fetch("/api/polls", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(body),
+  });
+  return handleResponse<PollResponse>(res);
+}
+
+export async function fetchPoll(pollId: string, voterToken?: string): Promise<PollResponse> {
+  const query = voterToken ? `?voter_token=${encodeURIComponent(voterToken)}` : "";
+  const res = await fetch(`/api/polls/${pollId}${query}`);
+  return handleResponse<PollResponse>(res);
+}
+
+export async function castPollVote(
+  pollId: string,
+  body: CastVoteRequest,
+): Promise<PollResponse> {
+  const res = await fetch(`/api/polls/${pollId}/vote`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<PollResponse>(res);
 }
