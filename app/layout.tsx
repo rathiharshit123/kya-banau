@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
+import { Playfair_Display, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { DeviceIdProvider } from "@/components/device-id-provider";
 import { Toaster } from "@/components/ui/toaster";
 
-const fraunces = Fraunces({
+const playfair = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-display",
   display: "swap",
-  weight: ["300", "400", "700", "900"],
+  weight: ["400", "700", "900"],
 });
 
-const plusJakarta = Plus_Jakarta_Sans({
+const dmSans = DM_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
@@ -20,7 +20,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "Kya Banau? — Aaj ka khana decide karo",
   description:
-    "AI-powered Indian meal suggestions personalised to your family's taste, region, and mood.",
+    "AI-powered Indian meal suggestions personalised to your family's taste, cuisine, and health goals.",
   icons: { icon: "/favicon.ico" },
 };
 
@@ -30,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${plusJakarta.variable}`}>
+    <html lang="en" className={`${playfair.variable} ${dmSans.variable}`}>
       <body>
         <DeviceIdProvider>
           {children}

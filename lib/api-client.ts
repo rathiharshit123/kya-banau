@@ -3,9 +3,9 @@ import type {
   Household,
   HouseholdUpsert,
   SuggestRequest,
-  SuggestionItem,
-  MealLog,
-  MealHistoryItem,
+  MealPlan,
+  RecipeVideosResponse,
+  MealInteractionRequest,
 } from "./types";
 
 function householdId(): string {
@@ -27,7 +27,6 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-// Household
 export async function fetchHousehold(): Promise<Household> {
   const res = await fetch("/api/household", { headers: headers() });
   return handleResponse<Household>(res);
@@ -42,29 +41,39 @@ export async function upsertHousehold(body: HouseholdUpsert): Promise<Household>
   return handleResponse<Household>(res);
 }
 
-// Suggestions
 export async function fetchSuggestions(
   body: SuggestRequest
-): Promise<{ suggestions: SuggestionItem[]; suggestion_id: string }> {
+): Promise<MealPlan & { suggestion_id: string }> {
   const res = await fetch("/api/suggestions", {
     method: "POST",
     headers: headers(),
     body: JSON.stringify(body),
   });
-  return handleResponse<{ suggestions: SuggestionItem[]; suggestion_id: string }>(res);
+  return handleResponse<MealPlan & { suggestion_id: string }>(res);
 }
 
-// Meals
-export async function logMeal(body: MealLog): Promise<void> {
-  const res = await fetch("/api/meals", {
+export async function fetchRecipeVideos(
+  dishName: string,
+  context?: Pick<MealInteractionRequest, "suggestion_id" | "meal_type" | "day">
+): Promise<RecipeVideosResponse> {
+  const res = await fetch("/api/recipe-videos", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({
+      dish_name: dishName,
+      suggestion_id: context?.suggestion_id,
+      meal_type: context?.meal_type,
+      day: context?.day,
+    }),
+  });
+  return handleResponse<RecipeVideosResponse>(res);
+}
+
+/** Fire-and-forget — never blocks UI or throws */
+export function logMealInteraction(body: MealInteractionRequest): void {
+  fetch("/api/meal-interactions", {
     method: "POST",
     headers: headers(),
     body: JSON.stringify(body),
-  });
-  return handleResponse<void>(res);
-}
-
-export async function fetchMealHistory(days = 14): Promise<MealHistoryItem[]> {
-  const res = await fetch(`/api/meals?days=${days}`, { headers: headers() });
-  return handleResponse<MealHistoryItem[]>(res);
+  }).catch(() => {});
 }

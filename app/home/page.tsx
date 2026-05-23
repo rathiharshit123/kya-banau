@@ -2,37 +2,48 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { History, Settings, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { MealTypePicker } from "@/components/meal-type-picker";
-import { MoodChips } from "@/components/mood-chips";
-import { MealSuggestionCard } from "@/components/meal-suggestion-card";
+import { Settings, Sparkles, RefreshCw } from "lucide-react";
+import { MealTimePicker } from "@/components/meal-time-picker";
+import { MealCard } from "@/components/meal-card";
+import { GreetingCard } from "@/components/greeting-card";
+import { ResultsFilter, filterMeals } from "@/components/results-filter";
 import { SuggestionSkeleton } from "@/components/skeleton";
-import { fetchSuggestions, logMeal } from "@/lib/api-client";
+import { fetchSuggestions } from "@/lib/api-client";
+import { buildFamilyGroupShareMessage, openWhatsAppShare } from "@/lib/share-message";
 import { toast } from "@/lib/use-toast";
-import type { MealType, Mood, SuggestionItem } from "@/lib/types";
+import type { MealTime, Meal } from "@/lib/types";
+
+type FilterId = "all" | "today" | "week" | "breakfast" | "lunch" | "dinner";
 
 export default function HomePage() {
-  const [mealType, setMealType] = useState<MealType | null>(null);
-  const [moods, setMoods] = useState<Mood[]>([]);
+  const [mealTime, setMealTime] = useState<MealTime | null>(null);
   const [loading, setLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<SuggestionItem[] | null>(null);
-  const [suggestionId, setSuggestionId] = useState<string | null>(null);
+  const [greeting, setGreeting] = useState<string | null>(null);
+  const [tip, setTip] = useState<string | null>(null);
+  const [meals, setMeals] = useState<Meal[] | null>(null);
+  const [filter, setFilter] = useState<FilterId>("all");
   const [error, setError] = useState<string | null>(null);
+  const [suggestionId, setSuggestionId] = useState<string | null>(null);
 
-  async function handleSuggest() {
-    if (!mealType) {
-      toast({ title: "Pick a meal type first!", variant: "error" });
+  async function handleGenerate() {
+    if (!mealTime) {
+      toast({ title: "Pick a meal time first!", variant: "error" });
       return;
     }
     setLoading(true);
     setError(null);
-    setSuggestions(null);
+    setMeals(null);
+    setGreeting(null);
+    setTip(null);
+    setFilter("all");
+    setSuggestionId(null);
 
     try {
-      const result = await fetchSuggestions({ meal_type: mealType, moods });
-      setSuggestions(result.suggestions);
-      setSuggestionId(result.suggestion_id);
+      const result = await fetchSuggestions({ meal_time: mealTime });
+      setGreeting(result.greeting);
+      setTip(result.tip);
+      setMeals(result.meals);
+      setSuggestionId(result.suggestion_id ?? null);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -42,134 +53,169 @@ export default function HomePage() {
     }
   }
 
-  async function handlePick(mealName: string) {
-    if (!mealType) return;
-    await logMeal({
-      meal_name: mealName,
-      meal_type: mealType,
-      source: "suggested",
-      suggestion_id: suggestionId ?? undefined,
-    });
-    toast({
-      title: "Logged! 🍽️",
-      description: `${mealName} added to your history.`,
-      variant: "success",
+  function getShareMessage() {
+    if (!meals) return "";
+    const visible = filterMeals(meals, filter);
+    return buildFamilyGroupShareMessage(visible, { tip, filter });
+  }
+
+  function handleWhatsAppShare() {
+    const message = getShareMessage();
+    if (!message) return;
+    openWhatsAppShare(message);
+  }
+
+  function handleCopyShare() {
+    const message = getShareMessage();
+    if (!message) return;
+    navigator.clipboard.writeText(message).then(() => {
+      toast({ title: "Copied for family group!", variant: "success" });
     });
   }
 
+  const visibleMeals = meals ? filterMeals(meals, filter) : null;
+
   const greetingHour = new Date().getHours();
-  const greeting =
-    greetingHour < 12
-      ? "Good morning! ☀️"
-      : greetingHour < 17
-      ? "Good afternoon! 🌤️"
-      : "Good evening! 🌙";
+  const timeGreeting =
+    greetingHour < 12 ? "Good morning ☀️" : greetingHour < 17 ? "Good afternoon 🌤️" : "Good evening 🌙";
 
   return (
-    <main className="min-h-dvh flex flex-col">
-      {/* Top nav */}
-      <header className="flex items-center justify-between px-5 pt-6 pb-2">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-xl bg-terracotta flex items-center justify-center text-base shadow-sm shadow-terracotta/25">
+    <main className="min-h-dvh flex flex-col" style={{ background: "var(--color-bg)" }}>
+      {/* Header */}
+      <header
+        className="flex items-center justify-between px-5 pt-6 pb-3"
+        style={{ borderBottom: "1px solid var(--color-border)" }}
+      >
+        <div className="flex items-center gap-2.5">
+          <div
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-base"
+            style={{ background: "color-mix(in srgb, var(--color-accent) 20%, var(--color-card))", border: "1px solid var(--color-border)" }}
+          >
             🍛
           </div>
-          <span className="font-display text-lg font-bold text-charcoal">Kya Banau?</span>
+          <span className="font-display text-lg font-bold" style={{ color: "var(--color-text)" }}>
+            Kya Banau?
+          </span>
         </div>
-        <div className="flex items-center gap-1">
-          <Link
-            href="/history"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-charcoal/60 hover:text-charcoal hover:bg-charcoal/8 transition-colors"
-            title="History"
-          >
-            <History className="h-5 w-5" />
-          </Link>
-          <Link
-            href="/preferences"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-charcoal/60 hover:text-charcoal hover:bg-charcoal/8 transition-colors"
-            title="Preferences"
-          >
-            <Settings className="h-5 w-5" />
-          </Link>
-        </div>
+        <Link
+          href="/preferences"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl transition-colors"
+          style={{ color: "var(--color-muted)", border: "1px solid var(--color-border)" }}
+          title="Preferences"
+        >
+          <Settings className="h-4.5 w-4.5" />
+        </Link>
       </header>
 
-      <div className="flex-1 px-5 py-4 space-y-6 max-w-lg mx-auto w-full">
+      <div className="flex-1 px-5 py-5 space-y-6 max-w-lg mx-auto w-full">
         {/* Hero */}
-        <div className="space-y-1">
-          <p className="text-sm text-charcoal/50">{greeting}</p>
-          <h1 className="font-display text-4xl font-bold text-charcoal leading-tight">
-            Aaj kya{" "}
-            <span className="text-terracotta italic">banau?</span>
-          </h1>
-        </div>
+        {!meals && !loading && (
+          <div className="space-y-1 step-enter">
+            <p className="text-sm" style={{ color: "var(--color-muted)" }}>{timeGreeting}</p>
+            <h1 className="font-display text-4xl font-bold leading-tight" style={{ color: "var(--color-text)" }}>
+              Aaj kya{" "}
+              <span style={{ color: "var(--color-accent)" }} className="italic">
+                banau?
+              </span>
+            </h1>
+          </div>
+        )}
 
-        {/* Meal type */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-charcoal/60 uppercase tracking-wide">
-            Which meal?
-          </h2>
-          <MealTypePicker value={mealType} onChange={setMealType} />
-        </section>
+        {/* Meal time picker */}
+        {!meals && !loading && (
+          <section className="space-y-3 step-enter">
+            <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
+              What are you planning?
+            </h2>
+            <MealTimePicker value={mealTime} onChange={setMealTime} />
+          </section>
+        )}
 
-        {/* Mood */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-charcoal/60 uppercase tracking-wide">
-            What's the mood today?
-          </h2>
-          <MoodChips value={moods} onChange={setMoods} />
-          <p className="text-xs text-charcoal/40">Optional — pick any that apply</p>
-        </section>
+        {/* Generate button */}
+        {!meals && !loading && (
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={!mealTime}
+            className="btn-main w-full step-enter"
+          >
+            <Sparkles className="h-4 w-4" />
+            Generate meal plan
+          </button>
+        )}
 
-        {/* Suggest button */}
-        <Button
-          size="lg"
-          onClick={handleSuggest}
-          disabled={loading || !mealType}
-          className="w-full shadow-lg shadow-terracotta/25"
-        >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <span className="h-4 w-4 rounded-full border-2 border-cream border-t-transparent animate-spin" />
-              Finding ideas...
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              Suggest dishes
-            </span>
-          )}
-        </Button>
+        {/* Loading state */}
+        {loading && (
+          <div className="space-y-4">
+            <div className="text-center space-y-2 py-4">
+              <div className="text-4xl pulse">🍳</div>
+              <p className="text-sm" style={{ color: "var(--color-muted)" }}>
+                Crafting your personalised meal plan…
+              </p>
+            </div>
+            <SuggestionSkeleton />
+          </div>
+        )}
 
-        {/* Results */}
-        {loading && <SuggestionSkeleton />}
-
+        {/* Error */}
         {!loading && error && (
-          <div className="rounded-2xl border-2 border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+          <div
+            className="rounded-2xl px-5 py-4 text-sm"
+            style={{ background: "color-mix(in srgb, #f87171 10%, var(--color-card))", border: "1px solid color-mix(in srgb, #f87171 30%, var(--color-border))", color: "#f87171" }}
+          >
             <strong>Something went wrong:</strong> {error}
           </div>
         )}
 
-        {!loading && suggestions && (
-          <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-charcoal/60 uppercase tracking-wide">
-              {suggestions.length} ideas for you
-            </h2>
-            {suggestions.map((s, i) => (
-              <MealSuggestionCard
-                key={s.name}
-                suggestion={s}
-                index={i}
-                onPick={handlePick}
-              />
-            ))}
-            <button
-              type="button"
-              onClick={handleSuggest}
-              className="w-full text-sm text-charcoal/50 hover:text-terracotta transition-colors py-2"
-            >
-              ↺ Get different suggestions
-            </button>
-          </section>
+        {/* Results */}
+        {!loading && meals && greeting && tip && (
+          <div className="space-y-4 step-enter">
+            <GreetingCard greeting={greeting} tip={tip} />
+
+            <ResultsFilter
+              meals={meals}
+              active={filter}
+              onChange={setFilter}
+              onWhatsAppShare={handleWhatsAppShare}
+              onCopyShare={handleCopyShare}
+            />
+
+            <div className="space-y-3">
+              {(visibleMeals ?? []).map((meal, i) => (
+                <MealCard
+                  key={`${meal.day}-${meal.meal_type}-${meal.name}`}
+                  meal={meal}
+                  index={i}
+                  suggestionId={suggestionId}
+                />
+              ))}
+            </div>
+
+            {/* Footer actions */}
+            <div className="flex gap-3 pb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setMeals(null);
+                  setGreeting(null);
+                  setTip(null);
+                  setFilter("all");
+                  setSuggestionId(null);
+                }}
+                className="btn-ghost flex-1"
+              >
+                Change scope
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                className="btn-ghost flex-1 flex items-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Regenerate
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </main>

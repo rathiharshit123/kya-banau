@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { openai } from "@/lib/openai";
-import { buildSuggestPrompt, SUGGESTION_SCHEMA } from "@/lib/prompts";
-import { SuggestRequestSchema, SuggestionItemSchema } from "@/lib/types";
-import { z } from "zod";
+import { buildSuggestPrompt, MEAL_PLAN_SCHEMA } from "@/lib/prompts";
+import { SuggestRequestSchema, MealPlanSchema } from "@/lib/types";
 
 const DAILY_RATE_LIMIT = 20;
 
@@ -42,7 +41,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
   }
 
-  // Rate limit check
   const withinLimit = await checkRateLimit(householdId);
   if (!withinLimit) {
     return NextResponse.json(
@@ -51,7 +49,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Load household
   const { data: household, error: householdError } = await supabase
     .from("households")
     .select("*")
@@ -62,26 +59,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Household not found" }, { status: 404 });
   }
 
-  // Load 14-day meal history
-  const since14Days = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: history } = await supabase
-    .from("meal_history")
-    .select("*")
-    .eq("household_id", householdId)
-    .gte("eaten_at", since14Days)
-    .order("eaten_at", { ascending: false });
+  const { system, user } = buildSuggestPrompt(household, parsed.data.meal_time);
 
-  const { system, user } = buildSuggestPrompt(
-    household,
-    history ?? [],
-    parsed.data.meal_type,
-    parsed.data.moods
-  );
-
-  // Call OpenAI with Structured Outputs
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0.8,
+    max_tokens: 4000,
     messages: [
       { role: "system", content: system },
       { role: "user", content: user },
@@ -89,9 +72,9 @@ export async function POST(req: NextRequest) {
     response_format: {
       type: "json_schema",
       json_schema: {
-        name: "meal_suggestions",
+        name: "meal_plan",
         strict: true,
-        schema: SUGGESTION_SCHEMA,
+        schema: MEAL_PLAN_SCHEMA,
       },
     },
   });
@@ -101,32 +84,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "OpenAI returned empty response" }, { status: 500 });
   }
 
-  let suggestions: unknown;
+  let parsed_json: unknown;
   try {
-    suggestions = JSON.parse(raw).suggestions;
+    parsed_json = JSON.parse(raw);
   } catch {
     return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
   }
 
-  const validatedSuggestions = z.array(SuggestionItemSchema).safeParse(suggestions);
-  if (!validatedSuggestions.success) {
+  const validated = MealPlanSchema.safeParse(parsed_json);
+  if (!validated.success) {
     return NextResponse.json({ error: "Invalid AI response shape" }, { status: 500 });
   }
 
-  // Log to suggestions table
   const { data: suggestionLog } = await supabase
     .from("suggestions")
     .insert({
       household_id: householdId,
-      meal_type: parsed.data.meal_type,
-      moods: parsed.data.moods,
-      payload: validatedSuggestions.data,
+      meal_time: parsed.data.meal_time,
+      payload: validated.data,
     })
     .select("id")
     .single();
 
   return NextResponse.json({
-    suggestions: validatedSuggestions.data,
+    greeting: validated.data.greeting,
+    tip: validated.data.tip,
+    meals: validated.data.meals,
     suggestion_id: suggestionLog?.id ?? null,
   });
 }

@@ -1,30 +1,29 @@
 @import "tailwindcss";
 
 @theme {
-  --color-terracotta: #C4622D;
-  --color-saffron: #F59E0B;
-  --color-cream: #FEF9EF;
-  --color-charcoal: #1C1410;
-  --color-forest: #2D6A4F;
+  --color-bg: #0d0d0f;
+  --color-card: #13131a;
+  --color-border: #22222e;
+  --color-text: #f0ede8;
+  --color-muted: #8a8a9a;
+  --color-accent: #e8a44a;
+  --color-accent-dim: #b87c2e;
 
-  --font-display: "Fraunces", Georgia, serif;
-  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
 }
 
 @layer base {
   html {
     font-family: var(--font-sans);
-    background-color: var(--color-cream);
-    color: var(--color-charcoal);
+    background-color: var(--color-bg);
+    color: var(--color-text);
     -webkit-font-smoothing: antialiased;
   }
 
   body {
     min-height: 100dvh;
-    background-color: var(--color-cream);
-    /* subtle grain texture */
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-    background-size: 200px 200px;
+    background-color: var(--color-bg);
   }
 
   .font-display {
@@ -33,42 +32,242 @@
 }
 
 @layer utilities {
+  /* ── Chips ─────────────────────────────── */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.875rem;
+    border-radius: 9999px;
+    border: 1.5px solid var(--color-border);
+    background: var(--color-card);
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    user-select: none;
+  }
+  .chip:hover {
+    border-color: var(--color-accent);
+    color: var(--color-text);
+  }
+  .chip.active {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    color: var(--color-accent);
+  }
+
+  /* ── Cards ─────────────────────────────── */
+  .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    padding: 1.25rem;
+  }
+
+  /* ── Radio card ────────────────────────── */
+  .radio-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1rem;
+    border-radius: 0.875rem;
+    border: 1.5px solid var(--color-border);
+    background: var(--color-card);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .radio-card:hover {
+    border-color: var(--color-accent);
+  }
+  .radio-card.active {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-card));
+  }
+
+  /* ── Filter buttons ────────────────────── */
+  .filter-btn {
+    padding: 0.375rem 1rem;
+    border-radius: 9999px;
+    border: 1.5px solid var(--color-border);
+    background: transparent;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .filter-btn:hover {
+    border-color: var(--color-accent);
+    color: var(--color-text);
+  }
+  .filter-btn.active {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    color: var(--color-accent);
+  }
+
+  /* ── Buttons ───────────────────────────── */
+  .btn-main {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    background: var(--color-accent);
+    color: #0d0d0f;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    cursor: pointer;
+    border: none;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn-main:hover {
+    background: color-mix(in srgb, var(--color-accent) 85%, white);
+  }
+  .btn-main:active {
+    transform: scale(0.98);
+  }
+  .btn-main:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.75rem;
+    background: transparent;
+    border: 1.5px solid var(--color-border);
+    color: var(--color-muted);
+    font-weight: 500;
+    font-size: 0.9375rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-ghost:hover {
+    border-color: var(--color-accent);
+    color: var(--color-text);
+  }
+
+  /* ── Meal card ─────────────────────────── */
   .meal-card {
-    animation: card-in 0.4s ease both;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    overflow: hidden;
+    animation: card-in 0.35s ease both;
   }
 
+  .recipe-video-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-bg) 40%, var(--color-card));
+    text-decoration: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .recipe-video-card:hover {
+    border-color: color-mix(in srgb, #ff4444 40%, var(--color-border));
+    background: color-mix(in srgb, #ff4444 5%, var(--color-card));
+  }
+
+  /* ── Macro pills ───────────────────────── */
+  .macro-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    color: var(--color-accent);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  /* ── Tag variants ──────────────────────── */
+  .tag-veg {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 9999px;
+    background: color-mix(in srgb, #4ade80 12%, transparent);
+    color: #4ade80;
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+  .tag-nonveg {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 9999px;
+    background: color-mix(in srgb, #f87171 12%, transparent);
+    color: #f87171;
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+  .tag-other {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    color: var(--color-accent);
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+
+  /* ── Decorative dot ────────────────────── */
+  .deco-dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: var(--color-accent);
+  }
+
+  /* ── Animations ────────────────────────── */
   @keyframes card-in {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .fade-up {
-    animation: fade-up 0.5s ease both;
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   @keyframes fade-up {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50%       { opacity: 1;   transform: scale(1.08); }
+  }
+
+  .step-enter {
+    animation: fade-up 0.4s ease both;
+  }
+
+  .pulse {
+    animation: pulse-glow 1.4s ease-in-out infinite;
+  }
+
+  /* ── Shimmer (skeleton) ────────────────── */
   .shimmer {
     background: linear-gradient(
       90deg,
-      transparent 0%,
-      rgba(196, 98, 45, 0.08) 50%,
-      transparent 100%
+      var(--color-card) 0%,
+      color-mix(in srgb, var(--color-accent) 8%, var(--color-card)) 50%,
+      var(--color-card) 100%
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
@@ -76,6 +275,6 @@
 
   @keyframes shimmer {
     from { background-position: 200% center; }
-    to { background-position: -200% center; }
+    to   { background-position: -200% center; }
   }
 }

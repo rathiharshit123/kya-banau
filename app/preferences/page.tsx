@@ -3,27 +3,51 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ChipInput } from "@/components/chip-input";
-import { SpiceSlider } from "@/components/spice-slider";
 import { fetchHousehold, upsertHousehold } from "@/lib/api-client";
 import { toast } from "@/lib/use-toast";
 import {
+  CUISINES,
+  FUSION_DAYS,
+  HEALTH_GOALS,
+  DISLIKES,
   DIETARY_LABELS,
-  CUISINE_LABELS,
   type DietaryType,
-  type RegionalCuisine,
   type Household,
 } from "@/lib/types";
+
+function toggle(arr: string[], val: string): string[] {
+  return arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
+}
+
+function Chip({
+  label,
+  active,
+  onClick,
+  emoji,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  emoji?: string;
+}) {
+  return (
+    <button type="button" onClick={onClick} className={`chip${active ? " active" : ""}`}>
+      {emoji && <span>{emoji}</span>}
+      {label}
+    </button>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h2
+      className="text-xs font-semibold uppercase tracking-widest"
+      style={{ color: "var(--color-muted)" }}
+    >
+      {children}
+    </h2>
+  );
+}
 
 export default function PreferencesPage() {
   const [household, setHousehold] = useState<Partial<Household>>({});
@@ -33,7 +57,7 @@ export default function PreferencesPage() {
   useEffect(() => {
     fetchHousehold()
       .then((h) => setHousehold(h))
-      .catch(() => {/* not yet created */})
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
@@ -47,11 +71,13 @@ export default function PreferencesPage() {
       await upsertHousehold({
         name: household.name ?? undefined,
         dietary_type: household.dietary_type,
-        regional_cuisine: household.regional_cuisine,
-        spice_level: household.spice_level,
-        family_size: household.family_size,
-        loved_dishes: household.loved_dishes,
-        disliked_dishes: household.disliked_dishes,
+        include_fish: household.include_fish,
+        has_kids: household.has_kids,
+        cuisines: household.cuisines,
+        fusion_days: household.fusion_days,
+        height_cm: household.height_cm,
+        weight_kg: household.weight_kg,
+        health_goal: household.health_goal,
         disliked_ingredients: household.disliked_ingredients,
         notes: household.notes,
       });
@@ -65,150 +91,255 @@ export default function PreferencesPage() {
 
   if (loading) {
     return (
-      <main className="min-h-dvh flex items-center justify-center">
-        <div className="h-8 w-8 rounded-full border-2 border-terracotta border-t-transparent animate-spin" />
+      <main
+        className="min-h-dvh flex items-center justify-center"
+        style={{ background: "var(--color-bg)" }}
+      >
+        <div
+          className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin"
+          style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }}
+        />
       </main>
     );
   }
 
+  const cuisines = household.cuisines ?? [];
+  const fusionDays = household.fusion_days ?? [];
+  const dislikes = household.disliked_ingredients ?? [];
+
   return (
-    <main className="min-h-dvh flex flex-col">
-      <header className="flex items-center gap-3 px-5 pt-6 pb-4">
+    <main className="min-h-dvh flex flex-col" style={{ background: "var(--color-bg)" }}>
+      <header
+        className="flex items-center gap-3 px-5 pt-6 pb-4"
+        style={{ borderBottom: "1px solid var(--color-border)" }}
+      >
         <Link
           href="/home"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-charcoal/60 hover:text-charcoal hover:bg-charcoal/8 transition-colors"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl transition-colors"
+          style={{ color: "var(--color-muted)", border: "1px solid var(--color-border)" }}
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4.5 w-4.5" />
         </Link>
-        <h1 className="font-display text-2xl font-bold text-charcoal">Preferences</h1>
+        <h1 className="font-display text-2xl font-bold" style={{ color: "var(--color-text)" }}>
+          Preferences
+        </h1>
       </header>
 
-      <div className="flex-1 px-5 pb-10 space-y-6 max-w-lg mx-auto w-full">
-        {/* Basics */}
-        <section className="space-y-4">
-          <h2 className="text-sm font-semibold text-charcoal/50 uppercase tracking-wide">
-            Family basics
-          </h2>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="name">Family name</Label>
-            <Input
-              id="name"
-              placeholder="e.g. The Sharmas"
-              value={household.name ?? ""}
-              onChange={(e) => patch("name", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Dietary preference</Label>
-            <Select
-              value={household.dietary_type ?? "vegetarian"}
-              onValueChange={(v) => patch("dietary_type", v as DietaryType)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(DIETARY_LABELS).map(([v, l]) => (
-                  <SelectItem key={v} value={v}>{l}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Regional cuisine</Label>
-            <Select
-              value={household.regional_cuisine ?? "north_indian"}
-              onValueChange={(v) => patch("regional_cuisine", v as RegionalCuisine)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(CUISINE_LABELS).map(([v, l]) => (
-                  <SelectItem key={v} value={v}>{l}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="fam-size">Family size</Label>
-            <Input
-              id="fam-size"
-              type="number"
-              min={1}
-              max={20}
-              value={household.family_size ?? 2}
-              onChange={(e) => patch("family_size", parseInt(e.target.value) || 2)}
-              className="max-w-[120px]"
-            />
-          </div>
-
-          <SpiceSlider
-            value={household.spice_level ?? 3}
-            onChange={(v) => patch("spice_level", v)}
+      <div className="flex-1 px-5 pb-10 space-y-8 max-w-lg mx-auto w-full pt-5">
+        {/* Family name */}
+        <section className="space-y-3">
+          <SectionLabel>Family name</SectionLabel>
+          <input
+            type="text"
+            placeholder="e.g. The Sharmas"
+            value={household.name ?? ""}
+            onChange={(e) => patch("name", e.target.value)}
+            className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-colors"
+            style={{
+              background: "var(--color-card)",
+              border: "1.5px solid var(--color-border)",
+              color: "var(--color-text)",
+            }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--color-accent)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--color-border)")}
           />
         </section>
 
-        {/* Taste preferences */}
-        <section className="space-y-4">
-          <h2 className="text-sm font-semibold text-charcoal/50 uppercase tracking-wide">
-            Taste preferences
-          </h2>
+        {/* Cuisines */}
+        <section className="space-y-3">
+          <SectionLabel>Preferred Cuisines</SectionLabel>
+          <div className="flex flex-wrap gap-2">
+            {CUISINES.map((c) => (
+              <Chip
+                key={c.id}
+                label={c.label}
+                emoji={c.emoji}
+                active={cuisines.includes(c.id)}
+                onClick={() => patch("cuisines", toggle(cuisines, c.id) as Household["cuisines"])}
+              />
+            ))}
+          </div>
+        </section>
 
-          <div className="space-y-1.5">
-            <Label>Dishes you love ❤️</Label>
-            <ChipInput
-              value={household.loved_dishes ?? []}
-              onChange={(v) => patch("loved_dishes", v)}
-              placeholder="e.g. Dal Makhani..."
-            />
+        {/* Fusion days */}
+        <section className="space-y-3">
+          <SectionLabel>Fusion Days</SectionLabel>
+          <div className="flex flex-wrap gap-2">
+            {FUSION_DAYS.map((d) => (
+              <Chip
+                key={d.id}
+                label={d.label}
+                active={fusionDays.includes(d.id)}
+                onClick={() =>
+                  patch("fusion_days", toggle(fusionDays, d.id) as Household["fusion_days"])
+                }
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* Diet */}
+        <section className="space-y-3">
+          <SectionLabel>Dietary Preference</SectionLabel>
+          <div className="grid grid-cols-1 gap-2">
+            {(Object.keys(DIETARY_LABELS) as DietaryType[]).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => patch("dietary_type", d)}
+                className={`radio-card text-left${household.dietary_type === d ? " active" : ""}`}
+              >
+                <span
+                  className="text-sm font-semibold"
+                  style={{
+                    color:
+                      household.dietary_type === d
+                        ? "var(--color-accent)"
+                        : "var(--color-text)",
+                  }}
+                >
+                  {DIETARY_LABELS[d]}
+                </span>
+              </button>
+            ))}
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Dishes to avoid 🚫</Label>
-            <ChipInput
-              value={household.disliked_dishes ?? []}
-              onChange={(v) => patch("disliked_dishes", v)}
-              placeholder="e.g. Karela, Bhindi..."
+          {household.dietary_type === "non_vegetarian" && (
+            <label className="flex items-center gap-3 cursor-pointer mt-2">
+              <input
+                type="checkbox"
+                checked={household.include_fish ?? false}
+                onChange={(e) => patch("include_fish", e.target.checked)}
+                className="h-4 w-4"
+              />
+              <span className="text-sm" style={{ color: "var(--color-text)" }}>
+                Include fish &amp; seafood
+              </span>
+            </label>
+          )}
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={household.has_kids ?? false}
+              onChange={(e) => patch("has_kids", e.target.checked)}
+              className="h-4 w-4"
             />
+            <span className="text-sm" style={{ color: "var(--color-text)" }}>
+              Include kid-friendly meal suggestions
+            </span>
+          </label>
+        </section>
+
+        {/* Health */}
+        <section className="space-y-3">
+          <SectionLabel>Body &amp; Health Goal</SectionLabel>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+                Height (cm)
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 170"
+                value={household.height_cm ?? ""}
+                onChange={(e) =>
+                  patch("height_cm", e.target.value ? parseFloat(e.target.value) : null)
+                }
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
+                style={{
+                  background: "var(--color-card)",
+                  border: "1.5px solid var(--color-border)",
+                  color: "var(--color-text)",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "var(--color-accent)")}
+                onBlur={(e) => (e.target.style.borderColor = "var(--color-border)")}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
+                Weight (kg)
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 65"
+                value={household.weight_kg ?? ""}
+                onChange={(e) =>
+                  patch("weight_kg", e.target.value ? parseFloat(e.target.value) : null)
+                }
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
+                style={{
+                  background: "var(--color-card)",
+                  border: "1.5px solid var(--color-border)",
+                  color: "var(--color-text)",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "var(--color-accent)")}
+                onBlur={(e) => (e.target.style.borderColor = "var(--color-border)")}
+              />
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Ingredients to avoid</Label>
-            <ChipInput
-              value={household.disliked_ingredients ?? []}
-              onChange={(v) => patch("disliked_ingredients", v)}
-              placeholder="e.g. Garlic, Coconut..."
-            />
+          <div className="flex flex-wrap gap-2">
+            {HEALTH_GOALS.map((g) => (
+              <Chip
+                key={g.id}
+                label={g.label}
+                active={household.health_goal === g.id}
+                onClick={() =>
+                  patch("health_goal", household.health_goal === g.id ? "" : g.id)
+                }
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* Dislikes */}
+        <section className="space-y-3">
+          <SectionLabel>Ingredients to Avoid</SectionLabel>
+          <div className="flex flex-wrap gap-2">
+            {DISLIKES.map((d) => (
+              <Chip
+                key={d}
+                label={d}
+                active={dislikes.includes(d)}
+                onClick={() =>
+                  patch(
+                    "disliked_ingredients",
+                    toggle(dislikes, d) as Household["disliked_ingredients"]
+                  )
+                }
+              />
+            ))}
           </div>
         </section>
 
         {/* Notes */}
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-charcoal/50 uppercase tracking-wide">
-            Additional notes
-          </h2>
+          <SectionLabel>Additional Notes</SectionLabel>
           <textarea
             value={household.notes ?? ""}
             onChange={(e) => patch("notes", e.target.value)}
             placeholder="Allergies, health conditions, anything else the AI should know..."
             rows={3}
-            className="flex w-full rounded-xl border-2 border-charcoal/20 bg-cream/60 px-4 py-3 text-sm text-charcoal placeholder:text-charcoal/40 focus-visible:outline-none focus-visible:border-terracotta focus-visible:bg-cream transition-colors resize-none"
+            className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none transition-colors"
+            style={{
+              background: "var(--color-card)",
+              border: "1.5px solid var(--color-border)",
+              color: "var(--color-text)",
+            }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--color-accent)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--color-border)")}
           />
         </section>
 
-        <Button
-          size="lg"
+        <button
+          type="button"
           onClick={handleSave}
           disabled={saving}
-          className="w-full shadow-lg shadow-terracotta/25"
+          className="btn-main w-full"
         >
           {saving ? "Saving..." : "Save preferences"}
-        </Button>
+        </button>
       </div>
     </main>
   );

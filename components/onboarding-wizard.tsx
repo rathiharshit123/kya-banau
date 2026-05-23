@@ -2,73 +2,27 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ChipInput } from "@/components/chip-input";
-import { SpiceSlider } from "@/components/spice-slider";
 import { upsertHousehold } from "@/lib/api-client";
 import { toast } from "@/lib/use-toast";
 import {
+  CUISINES,
+  FUSION_DAYS,
+  HEALTH_GOALS,
+  DISLIKES,
   DIETARY_LABELS,
-  CUISINE_LABELS,
   type DietaryType,
-  type RegionalCuisine,
 } from "@/lib/types";
-
-const POPULAR_DISHES = [
-  "Aloo Gobi",
-  "Dal Tadka",
-  "Paneer Butter Masala",
-  "Rajma",
-  "Chole",
-  "Biryani",
-  "Khichdi",
-  "Poha",
-  "Upma",
-  "Idli Sambhar",
-  "Dosa",
-  "Paratha",
-  "Roti Sabzi",
-  "Pulao",
-  "Kadhi Chawal",
-  "Palak Paneer",
-  "Matar Paneer",
-  "Baingan Bharta",
-  "Moong Dal",
-  "Chicken Curry",
-  "Egg Bhurji",
-  "Fish Fry",
-];
-
-const POPULAR_INGREDIENTS = [
-  "Onion",
-  "Garlic",
-  "Potato",
-  "Tomato",
-  "Capsicum",
-  "Cauliflower",
-  "Spinach",
-  "Coconut",
-  "Mustard seeds",
-  "Cumin",
-];
 
 interface FormState {
   name: string;
   dietary_type: DietaryType;
-  regional_cuisine: RegionalCuisine;
-  family_size: number;
-  spice_level: number;
-  loved_dishes: string[];
-  disliked_dishes: string[];
+  include_fish: boolean;
+  has_kids: boolean;
+  cuisines: string[];
+  fusion_days: string[];
+  height_cm: string;
+  weight_kg: string;
+  health_goal: string;
   disliked_ingredients: string[];
   notes: string;
 }
@@ -76,15 +30,81 @@ interface FormState {
 const INITIAL: FormState = {
   name: "",
   dietary_type: "vegetarian",
-  regional_cuisine: "north_indian",
-  family_size: 2,
-  spice_level: 3,
-  loved_dishes: [],
-  disliked_dishes: [],
+  include_fish: false,
+  has_kids: false,
+  cuisines: [],
+  fusion_days: [],
+  height_cm: "",
+  weight_kg: "",
+  health_goal: "",
   disliked_ingredients: [],
   notes: "",
 };
 
+function toggle(arr: string[], val: string): string[] {
+  return arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
+}
+
+function calcBmi(h: string, w: string): string | null {
+  const hNum = parseFloat(h);
+  const wNum = parseFloat(w);
+  if (!hNum || !wNum || hNum < 50 || wNum < 10) return null;
+  const hM = hNum / 100;
+  return (wNum / (hM * hM)).toFixed(1);
+}
+
+function bmiLabel(bmi: string): string {
+  const v = parseFloat(bmi);
+  if (v < 18.5) return "Underweight";
+  if (v < 25) return "Healthy";
+  if (v < 30) return "Overweight";
+  return "Obese";
+}
+
+// ─── Progress bar ──────────────────────────────────────────────────────────────
+function Progress({ step, total }: { step: number; total: number }) {
+  const pct = ((step + 1) / (total + 1)) * 100;
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs" style={{ color: "var(--color-muted)" }}>
+        <span>Step {step + 1} of {total}</span>
+        <span>{Math.round(pct)}%</span>
+      </div>
+      <div className="h-1 w-full rounded-full" style={{ background: "var(--color-border)" }}>
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: "var(--color-accent)" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Chip ──────────────────────────────────────────────────────────────────────
+function Chip({
+  label,
+  active,
+  onClick,
+  emoji,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  emoji?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`chip${active ? " active" : ""}`}
+    >
+      {emoji && <span>{emoji}</span>}
+      {label}
+    </button>
+  );
+}
+
+// ─── Main wizard ───────────────────────────────────────────────────────────────
 export function OnboardingWizard({ initialStep = 0 }: { initialStep?: number }) {
   const router = useRouter();
   const [step, setStep] = useState(initialStep);
@@ -95,11 +115,23 @@ export function OnboardingWizard({ initialStep = 0 }: { initialStep?: number }) 
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function save() {
+  async function handleSave() {
     setSaving(true);
     try {
-      await upsertHousehold(form);
-      setStep(3);
+      await upsertHousehold({
+        name: form.name || undefined,
+        dietary_type: form.dietary_type,
+        include_fish: form.include_fish,
+        has_kids: form.has_kids,
+        cuisines: form.cuisines,
+        fusion_days: form.fusion_days,
+        height_cm: form.height_cm ? parseFloat(form.height_cm) : null,
+        weight_kg: form.weight_kg ? parseFloat(form.weight_kg) : null,
+        health_goal: form.health_goal,
+        disliked_ingredients: form.disliked_ingredients,
+        notes: form.notes,
+      });
+      setStep(6);
     } catch (e) {
       toast({ title: "Couldn't save", description: String(e), variant: "error" });
     } finally {
@@ -107,44 +139,24 @@ export function OnboardingWizard({ initialStep = 0 }: { initialStep?: number }) 
     }
   }
 
-  const TOTAL = 3;
-  const progress = ((step + 1) / (TOTAL + 1)) * 100;
+  const TOTAL = 5;
 
   return (
     <div className="space-y-6">
-      {/* Progress */}
-      {step < 3 && (
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-xs text-charcoal/50">
-            <span>Step {step + 1} of {TOTAL}</span>
-            <span>{Math.round(progress)}% done</span>
-          </div>
-          <div className="h-1.5 w-full rounded-full bg-charcoal/10 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-terracotta transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {step === 0 && (
-        <StepOne form={form} patch={patch} onNext={() => setStep(1)} />
-      )}
-      {step === 1 && (
-        <StepTwo form={form} patch={patch} onBack={() => setStep(0)} onNext={() => setStep(2)} />
-      )}
-      {step === 2 && (
-        <StepThree form={form} patch={patch} onBack={() => setStep(1)} onSave={save} saving={saving} />
-      )}
-      {step === 3 && (
-        <StepDone onGo={() => router.push("/home")} />
-      )}
+      {step < 6 && step > 0 && <Progress step={step} total={TOTAL} />}
+      {step === 0 && <Step0 form={form} patch={patch} onNext={() => setStep(1)} />}
+      {step === 1 && <Step1 form={form} patch={patch} onBack={() => setStep(0)} onNext={() => setStep(2)} />}
+      {step === 2 && <Step2 form={form} patch={patch} onBack={() => setStep(1)} onNext={() => setStep(3)} />}
+      {step === 3 && <Step3 form={form} patch={patch} onBack={() => setStep(2)} onNext={() => setStep(4)} />}
+      {step === 4 && <Step4 form={form} patch={patch} onBack={() => setStep(3)} onNext={() => setStep(5)} />}
+      {step === 5 && <Step5 form={form} patch={patch} onBack={() => setStep(4)} onSave={handleSave} saving={saving} />}
+      {step === 6 && <StepDone onGo={() => router.push("/home")} />}
     </div>
   );
 }
 
-function StepOne({
+// ─── Step 0: Welcome / name ────────────────────────────────────────────────────
+function Step0({
   form,
   patch,
   onNext,
@@ -154,88 +166,46 @@ function StepOne({
   onNext: () => void;
 }) {
   return (
-    <div className="space-y-5 fade-up">
-      <div>
-        <h2 className="font-display text-2xl font-bold text-charcoal">
-          Tell us about your family
+    <div className="space-y-6 step-enter">
+      <div className="text-center space-y-2">
+        <div className="text-5xl">🍛</div>
+        <h2 className="font-display text-3xl font-bold" style={{ color: "var(--color-text)" }}>
+          Welcome!
         </h2>
-        <p className="mt-1 text-sm text-charcoal/60">Quick basics — takes 30 seconds.</p>
+        <p className="text-sm" style={{ color: "var(--color-muted)" }}>
+          Let's set up your household in 5 quick steps.
+        </p>
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="name">Family name (optional)</Label>
-          <Input
-            id="name"
-            placeholder="e.g. The Sharmas"
-            value={form.name}
-            onChange={(e) => patch("name", e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Dietary preference</Label>
-          <Select
-            value={form.dietary_type}
-            onValueChange={(v) => patch("dietary_type", v as DietaryType)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(DIETARY_LABELS).map(([v, l]) => (
-                <SelectItem key={v} value={v}>{l}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Regional cuisine</Label>
-          <Select
-            value={form.regional_cuisine}
-            onValueChange={(v) => patch("regional_cuisine", v as RegionalCuisine)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(CUISINE_LABELS).map(([v, l]) => (
-                <SelectItem key={v} value={v}>{l}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="family_size">Family size</Label>
-            <Input
-              id="family_size"
-              type="number"
-              min={1}
-              max={20}
-              value={form.family_size}
-              onChange={(e) => patch("family_size", parseInt(e.target.value) || 2)}
-            />
-          </div>
-          <div className="col-span-1" />
-        </div>
-
-        <SpiceSlider
-          value={form.spice_level}
-          onChange={(v) => patch("spice_level", v)}
+      <div className="space-y-3">
+        <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+          Family name <span style={{ color: "var(--color-muted)" }}>(optional)</span>
+        </label>
+        <input
+          type="text"
+          placeholder="e.g. The Sharmas"
+          value={form.name}
+          onChange={(e) => patch("name", e.target.value)}
+          className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-colors"
+          style={{
+            background: "var(--color-card)",
+            border: "1.5px solid var(--color-border)",
+            color: "var(--color-text)",
+          }}
+          onFocus={(e) => (e.target.style.borderColor = "var(--color-accent)")}
+          onBlur={(e) => (e.target.style.borderColor = "var(--color-border)")}
         />
       </div>
 
-      <Button onClick={onNext} size="lg" className="w-full">
-        Next →
-      </Button>
+      <button type="button" onClick={onNext} className="btn-main w-full">
+        Let's start →
+      </button>
     </div>
   );
 }
 
-function StepTwo({
+// ─── Step 1: Cuisines ─────────────────────────────────────────────────────────
+function Step1({
   form,
   patch,
   onBack,
@@ -247,64 +217,262 @@ function StepTwo({
   onNext: () => void;
 }) {
   return (
-    <div className="space-y-5 fade-up">
+    <div className="space-y-5 step-enter">
       <div>
-        <h2 className="font-display text-2xl font-bold text-charcoal">
-          Your food preferences
+        <h2 className="font-display text-2xl font-bold" style={{ color: "var(--color-text)" }}>
+          Which cuisines do you love?
         </h2>
-        <p className="mt-1 text-sm text-charcoal/60">
-          Help us suggest dishes you'll actually want to make.
+        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
+          Pick all that apply — we'll balance suggestions accordingly.
         </p>
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-1.5">
-          <Label>Dishes you love ❤️</Label>
-          <ChipInput
-            value={form.loved_dishes}
-            onChange={(v) => patch("loved_dishes", v)}
-            placeholder="e.g. Dal Makhani, Biryani..."
-            suggestions={POPULAR_DISHES}
+      <div className="flex flex-wrap gap-2">
+        {CUISINES.map((c) => (
+          <Chip
+            key={c.id}
+            label={c.label}
+            emoji={c.emoji}
+            active={form.cuisines.includes(c.id)}
+            onClick={() => patch("cuisines", toggle(form.cuisines, c.id))}
           />
-          <p className="text-xs text-charcoal/40">
-            Type a dish and press Enter, or pick from suggestions
-          </p>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Dishes to avoid 🚫</Label>
-          <ChipInput
-            value={form.disliked_dishes}
-            onChange={(v) => patch("disliked_dishes", v)}
-            placeholder="e.g. Bhindi, Karela..."
-            suggestions={POPULAR_DISHES}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Ingredients to avoid</Label>
-          <ChipInput
-            value={form.disliked_ingredients}
-            onChange={(v) => patch("disliked_ingredients", v)}
-            placeholder="e.g. Garlic, Coconut..."
-            suggestions={POPULAR_INGREDIENTS}
-          />
-        </div>
+        ))}
       </div>
 
       <div className="flex gap-3">
-        <Button variant="outline" onClick={onBack} className="flex-1">
-          ← Back
-        </Button>
-        <Button onClick={onNext} className="flex-1">
-          Next →
-        </Button>
+        <button type="button" onClick={onBack} className="btn-ghost flex-1">← Back</button>
+        <button type="button" onClick={onNext} className="btn-main flex-1">Next →</button>
       </div>
     </div>
   );
 }
 
-function StepThree({
+// ─── Step 2: Fusion days ──────────────────────────────────────────────────────
+function Step2({
+  form,
+  patch,
+  onBack,
+  onNext,
+}: {
+  form: FormState;
+  patch: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="space-y-5 step-enter">
+      <div>
+        <h2 className="font-display text-2xl font-bold" style={{ color: "var(--color-text)" }}>
+          Fusion days?
+        </h2>
+        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
+          Days when you're open to non-Indian cooking. Skip if always Indian.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {FUSION_DAYS.map((d) => (
+          <Chip
+            key={d.id}
+            label={d.label}
+            active={form.fusion_days.includes(d.id)}
+            onClick={() => patch("fusion_days", toggle(form.fusion_days, d.id))}
+          />
+        ))}
+      </div>
+
+      <div className="flex gap-3">
+        <button type="button" onClick={onBack} className="btn-ghost flex-1">← Back</button>
+        <button type="button" onClick={onNext} className="btn-main flex-1">Next →</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 3: Diet + fish + kids ───────────────────────────────────────────────
+function Step3({
+  form,
+  patch,
+  onBack,
+  onNext,
+}: {
+  form: FormState;
+  patch: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  const dietOptions: DietaryType[] = ["vegetarian", "eggetarian", "non_vegetarian"];
+
+  return (
+    <div className="space-y-5 step-enter">
+      <div>
+        <h2 className="font-display text-2xl font-bold" style={{ color: "var(--color-text)" }}>
+          Dietary preference
+        </h2>
+        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
+          We'll strictly follow this in every suggestion.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3">
+        {dietOptions.map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => patch("dietary_type", d)}
+            className={`radio-card${form.dietary_type === d ? " active" : ""}`}
+          >
+            <span
+              className="text-sm font-semibold"
+              style={{ color: form.dietary_type === d ? "var(--color-accent)" : "var(--color-text)" }}
+            >
+              {DIETARY_LABELS[d]}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {form.dietary_type === "non_vegetarian" && (
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.include_fish}
+            onChange={(e) => patch("include_fish", e.target.checked)}
+            className="h-4 w-4 accent-[var(--color-accent)]"
+          />
+          <span className="text-sm" style={{ color: "var(--color-text)" }}>
+            Include fish &amp; seafood
+          </span>
+        </label>
+      )}
+
+      <label className="flex items-center gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={form.has_kids}
+          onChange={(e) => patch("has_kids", e.target.checked)}
+          className="h-4 w-4 accent-[var(--color-accent)]"
+        />
+        <span className="text-sm" style={{ color: "var(--color-text)" }}>
+          I have young children (include kid-friendly meals)
+        </span>
+      </label>
+
+      <div className="flex gap-3">
+        <button type="button" onClick={onBack} className="btn-ghost flex-1">← Back</button>
+        <button type="button" onClick={onNext} className="btn-main flex-1">Next →</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 4: Height / weight / health goal ────────────────────────────────────
+function Step4({
+  form,
+  patch,
+  onBack,
+  onNext,
+}: {
+  form: FormState;
+  patch: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  const bmi = calcBmi(form.height_cm, form.weight_kg);
+
+  return (
+    <div className="space-y-5 step-enter">
+      <div>
+        <h2 className="font-display text-2xl font-bold" style={{ color: "var(--color-text)" }}>
+          Your body &amp; goals
+        </h2>
+        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
+          Optional — helps us suggest nutritionally appropriate meals.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>
+            Height (cm)
+          </label>
+          <input
+            type="number"
+            placeholder="e.g. 170"
+            value={form.height_cm}
+            onChange={(e) => patch("height_cm", e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
+            style={{
+              background: "var(--color-card)",
+              border: "1.5px solid var(--color-border)",
+              color: "var(--color-text)",
+            }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--color-accent)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--color-border)")}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold" style={{ color: "var(--color-muted)" }}>
+            Weight (kg)
+          </label>
+          <input
+            type="number"
+            placeholder="e.g. 65"
+            value={form.weight_kg}
+            onChange={(e) => patch("weight_kg", e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
+            style={{
+              background: "var(--color-card)",
+              border: "1.5px solid var(--color-border)",
+              color: "var(--color-text)",
+            }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--color-accent)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--color-border)")}
+          />
+        </div>
+      </div>
+
+      {bmi && (
+        <div
+          className="flex items-center justify-between rounded-xl px-4 py-3"
+          style={{
+            background: "color-mix(in srgb, var(--color-accent) 10%, var(--color-card))",
+            border: "1px solid color-mix(in srgb, var(--color-accent) 30%, var(--color-border))",
+          }}
+        >
+          <span className="text-sm font-medium" style={{ color: "var(--color-muted)" }}>BMI</span>
+          <span className="font-bold" style={{ color: "var(--color-accent)" }}>
+            {bmi} — {bmiLabel(bmi)}
+          </span>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <p className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+          Health goal <span style={{ color: "var(--color-muted)" }}>(optional)</span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {HEALTH_GOALS.map((g) => (
+            <Chip
+              key={g.id}
+              label={g.label}
+              active={form.health_goal === g.id}
+              onClick={() => patch("health_goal", form.health_goal === g.id ? "" : g.id)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <button type="button" onClick={onBack} className="btn-ghost flex-1">← Back</button>
+        <button type="button" onClick={onNext} className="btn-main flex-1">Next →</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 5: Dislikes + notes → Save ─────────────────────────────────────────
+function Step5({
   form,
   patch,
   onBack,
@@ -318,59 +486,80 @@ function StepThree({
   saving: boolean;
 }) {
   return (
-    <div className="space-y-5 fade-up">
+    <div className="space-y-5 step-enter">
       <div>
-        <h2 className="font-display text-2xl font-bold text-charcoal">
-          Anything else?
+        <h2 className="font-display text-2xl font-bold" style={{ color: "var(--color-text)" }}>
+          What do you dislike?
         </h2>
-        <p className="mt-1 text-sm text-charcoal/60">
-          Optional notes — allergies, preferences, anything the AI should know.
+        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
+          We'll never suggest these ingredients.
         </p>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="notes">Free-text notes</Label>
+      <div className="flex flex-wrap gap-2">
+        {DISLIKES.map((d) => (
+          <Chip
+            key={d}
+            label={d}
+            active={form.disliked_ingredients.includes(d)}
+            onClick={() => patch("disliked_ingredients", toggle(form.disliked_ingredients, d))}
+          />
+        ))}
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+          Additional notes <span style={{ color: "var(--color-muted)" }}>(optional)</span>
+        </label>
         <textarea
-          id="notes"
           value={form.notes}
           onChange={(e) => patch("notes", e.target.value)}
-          placeholder="e.g. We prefer less oily food. Dad is diabetic so avoid very sweet dishes..."
-          rows={4}
-          className="flex w-full rounded-xl border-2 border-charcoal/20 bg-cream/60 px-4 py-3 text-sm text-charcoal placeholder:text-charcoal/40 focus-visible:outline-none focus-visible:border-terracotta focus-visible:bg-cream transition-colors resize-none"
+          placeholder="Allergies, health conditions, anything else the AI should know..."
+          rows={3}
+          className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none transition-colors"
+          style={{
+            background: "var(--color-card)",
+            border: "1.5px solid var(--color-border)",
+            color: "var(--color-text)",
+          }}
+          onFocus={(e) => (e.target.style.borderColor = "var(--color-accent)")}
+          onBlur={(e) => (e.target.style.borderColor = "var(--color-border)")}
         />
       </div>
 
       <div className="flex gap-3">
-        <Button variant="outline" onClick={onBack} className="flex-1">
-          ← Back
-        </Button>
-        <Button onClick={onSave} disabled={saving} className="flex-1">
-          {saving ? "Saving..." : "Save & Start 🎉"}
-        </Button>
+        <button type="button" onClick={onBack} className="btn-ghost flex-1">← Back</button>
+        <button type="button" onClick={onSave} disabled={saving} className="btn-main flex-1">
+          {saving ? "Saving..." : "Save preferences 🎉"}
+        </button>
       </div>
     </div>
   );
 }
 
+// ─── Done screen ───────────────────────────────────────────────────────────────
 function StepDone({ onGo }: { onGo: () => void }) {
   return (
-    <div className="text-center space-y-6 fade-up py-4">
+    <div className="text-center space-y-6 py-6 step-enter">
       <div className="flex justify-center">
-        <div className="h-20 w-20 rounded-3xl bg-forest/15 flex items-center justify-center text-4xl animate-bounce">
+        <div
+          className="h-20 w-20 rounded-3xl flex items-center justify-center text-4xl"
+          style={{ background: "color-mix(in srgb, var(--color-accent) 15%, var(--color-card))" }}
+        >
           🎉
         </div>
       </div>
       <div>
-        <h2 className="font-display text-3xl font-bold text-charcoal">
+        <h2 className="font-display text-3xl font-bold" style={{ color: "var(--color-text)" }}>
           You're all set!
         </h2>
-        <p className="mt-2 text-charcoal/60">
+        <p className="mt-2 text-sm" style={{ color: "var(--color-muted)" }}>
           Your household preferences are saved. Let's find out what to cook today.
         </p>
       </div>
-      <Button size="lg" onClick={onGo} className="w-full shadow-lg shadow-terracotta/25">
-        Get my suggestions →
-      </Button>
+      <button type="button" onClick={onGo} className="btn-main w-full">
+        Get my meal plan →
+      </button>
     </div>
   );
 }
